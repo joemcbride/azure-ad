@@ -39,8 +39,8 @@ From your shell or command line:
 
 ### Step 3:  Configure the sample to use your Azure Active Directory tenant
 
-1. Open the solution in Visual Studio 2015.
-2. Open the `config.json` file.
+1. Open the solution in VS Code.
+2. Copy the `config.json` file to `config.user.json`.
 3. Find the `Tenant` property and replace the value with your AAD tenant name.
 4. Find the `ClientId` and replace the value with the Application ID from the Azure portal.
 5. If you changed the base URL of the sample, find the app key `ida:PostLogoutRedirectUri` and replace the value with the new base URL of the sample.
