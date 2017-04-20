@@ -76,7 +76,6 @@ namespace WebApp_OpenIDConnect_DotNet
             {
                 Events = new CookieAuthenticationEvents
                 {
-                   OnSigningIn = new Coordinator(transformer).OnSigningIn
                 }
             });
 
@@ -88,6 +87,15 @@ namespace WebApp_OpenIDConnect_DotNet
                 PostLogoutRedirectUri = configuration["AzureAd:PostLogoutRedirectUri"],
                 Events = new OpenIdConnectEvents
                 {
+                    OnTicketReceived = new Coordinator(transformer).OnTicketReceived,
+                    OnTokenValidated = c =>
+                    {
+                        return Task.CompletedTask;
+                    },
+                    OnTokenResponseReceived = c =>
+                    {
+                        return Task.CompletedTask;
+                    },
                     OnRemoteFailure = (context) =>
                     {
                         context.HandleResponse();
@@ -108,10 +116,12 @@ namespace WebApp_OpenIDConnect_DotNet
             _transformer = transformer;
         }
 
-        public async Task OnSigningIn(CookieSigningInContext context)
+        public async Task OnTicketReceived(TicketReceivedContext context)
         {
             var result = await _transformer.Transform(context.Principal);
             context.Principal = result;
+
+            // may want to also replace the ticket
         }
     }
 
