@@ -40,14 +40,14 @@ From your shell or command line:
 ### Step 3:  Configure the sample to use your Azure Active Directory tenant
 
 1. Open the solution in VS Code.
-2. Copy the `config.json` file to `config.user.json`.
+2. Copy the `config.json` file to `config.user.json` and edit `config.user.json`.
 3. Find the `Tenant` property and replace the value with your AAD tenant name.
 4. Find the `ClientId` and replace the value with the Application ID from the Azure portal.
 5. If you changed the base URL of the sample, find the app key `ida:PostLogoutRedirectUri` and replace the value with the new base URL of the sample.
 
 ### Step 4:  Run the sample
 
-Clean the solution, rebuild the solution, and run it.
+Clean the solution, rebuild the solution, and run it - the `config.user.json` file should be in the output directory.
 
 Click the sign-in link on the homepage of the application to sign-in.  On the Azure AD sign-in page, enter the name and password of a user account that is in your Azure AD tenant.
 
