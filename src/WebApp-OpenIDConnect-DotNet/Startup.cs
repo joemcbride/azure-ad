@@ -21,7 +21,7 @@ namespace WebApp_OpenIDConnect_DotNet
             // Set up configuration sources.
             Configuration = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("config.json")
+                .AddJsonFile("config.user.json")
                 .AddJsonFile("appsettings.json")
                 .Build();
         }
@@ -63,6 +63,7 @@ namespace WebApp_OpenIDConnect_DotNet
                 Events = new OpenIdConnectEvents
                 {
                     OnRemoteFailure = OnAuthenticationFailed,
+                    OnUserInformationReceived = OnUserInformationReceived
                 }
             });
 
@@ -80,7 +81,12 @@ namespace WebApp_OpenIDConnect_DotNet
         {
             context.HandleResponse();
             context.Response.Redirect("/Home/Error?message=" + context.Failure.Message);
-            return Task.FromResult(0);
+            return Task.CompletedTask;
+        }
+
+        private Task OnUserInformationReceived(UserInformationReceivedContext context)
+        {
+            return Task.CompletedTask;
         }
     }
 }
