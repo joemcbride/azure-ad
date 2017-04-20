@@ -1,6 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -28,17 +27,15 @@ namespace WebApp_OpenIDConnect_DotNet
 
         public IConfigurationRoot Configuration { get; set; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            // Add MVC services to the services container.
             services.AddMvc();
 
-            // Add Authentication services.
             services.AddAuthentication(sharedOptions => sharedOptions.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme);
+
+            services.AddTransient<IClaimsTransformer, MyClaimsTransformer>();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             // Add the console logger.
@@ -50,22 +47,7 @@ namespace WebApp_OpenIDConnect_DotNet
             // Add static files to the request pipeline.
             app.UseStaticFiles();
 
-            // Configure the OWIN pipeline to use cookie auth.
-            app.UseCookieAuthentication(new CookieAuthenticationOptions());
-
-            // Configure the OWIN pipeline to use OpenID Connect auth.
-            app.UseOpenIdConnectAuthentication(new OpenIdConnectOptions
-            {
-                ClientId = Configuration["AzureAD:ClientId"],
-                Authority = String.Format(Configuration["AzureAd:AadInstance"], Configuration["AzureAd:Tenant"]),
-                ResponseType = OpenIdConnectResponseType.IdToken,
-                PostLogoutRedirectUri = Configuration["AzureAd:PostLogoutRedirectUri"],
-                Events = new OpenIdConnectEvents
-                {
-                    OnRemoteFailure = OnAuthenticationFailed,
-                    OnUserInformationReceived = OnUserInformationReceived
-                }
-            });
+            app.UseAzureAuth(Configuration);
 
             // Configure MVC routes
             app.UseMvc(routes =>
@@ -83,10 +65,79 @@ namespace WebApp_OpenIDConnect_DotNet
             context.Response.Redirect("/Home/Error?message=" + context.Failure.Message);
             return Task.CompletedTask;
         }
+    }
 
-        private Task OnUserInformationReceived(UserInformationReceivedContext context)
+    public static class ApplicationExtensions
+    {
+        public static void UseAzureAuth(this IApplicationBuilder app, IConfiguration configuration)
         {
-            return Task.CompletedTask;
+            var transformer = app.ApplicationServices.GetService<IClaimsTransformer>();
+            app.UseCookieAuthentication(new CookieAuthenticationOptions
+            {
+                Events = new CookieAuthenticationEvents
+                {
+                   OnSigningIn = new Coordinator(transformer).OnSigningIn
+                }
+            });
+
+            app.UseOpenIdConnectAuthentication(new OpenIdConnectOptions
+            {
+                ClientId = configuration["AzureAD:ClientId"],
+                Authority = string.Format(configuration["AzureAd:AadInstance"], configuration["AzureAd:Tenant"]),
+                ResponseType = OpenIdConnectResponseType.IdToken,
+                PostLogoutRedirectUri = configuration["AzureAd:PostLogoutRedirectUri"],
+                Events = new OpenIdConnectEvents
+                {
+                    OnRemoteFailure = (context) =>
+                    {
+                        context.HandleResponse();
+                        context.Response.Redirect("/Home/Error?message=" + context.Failure.Message);
+                        return Task.CompletedTask;
+                    },
+                }
+            });
+        }
+    }
+
+    public class Coordinator
+    {
+        private readonly IClaimsTransformer _transformer;
+
+        public Coordinator(IClaimsTransformer transformer)
+        {
+            _transformer = transformer;
+        }
+
+        public async Task OnSigningIn(CookieSigningInContext context)
+        {
+            var result = await _transformer.Transform(context.Principal);
+            context.Principal = result;
+        }
+    }
+
+    public interface IClaimsTransformer
+    {
+        Task<ClaimsPrincipal> Transform(ClaimsPrincipal principal);
+    }
+
+    public class MyClaimsTransformer : IClaimsTransformer
+    {
+        public Task<ClaimsPrincipal> Transform(ClaimsPrincipal principal)
+        {
+            // return Task.FromResult(principal);
+
+            var identity = (ClaimsIdentity)principal.Identity;
+
+            var name = identity.FindFirst(ClaimTypes.Name);
+            var aud = identity.FindFirst("aud");
+            var iss = identity.FindFirst("iss");
+            var iat = identity.FindFirst("iat");
+
+            var claimsToKeep = new List<Claim> {name, aud, iat, iss};
+
+            var newIdentity = new ClaimsIdentity(claimsToKeep, identity.AuthenticationType);
+
+            return Task.FromResult(new ClaimsPrincipal(newIdentity));
         }
     }
 }
